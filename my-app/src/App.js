@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import './App.css';
 import Navbar from './component/Navbar';
 import Footer from './component/Footer';
@@ -8,43 +8,76 @@ import AuthContainer from './component/auth/AuthContainer';
 import axios from 'axios';
 import { FaStar, FaPlay, FaInfoCircle } from 'react-icons/fa';
 
+// Initial State
+const initialState = {
+  allAnimes: [],
+  filteredAnimes: [],
+  topAnimes: [],
+  selectedCategory: "All"
+};
 
+// Action Types
+const ACTIONS = {
+  SET_ANIMES: 'SET_ANIMES',
+  FILTER_BY_CATEGORY: 'FILTER_BY_CATEGORY'
+};
 
+// Reducer Function
+function animeReducer(state, action) {
+  switch (action.type) {
+    case ACTIONS.SET_ANIMES:
+      return {
+        ...state,
+        allAnimes: action.payload,
+        filteredAnimes: action.payload,
+        topAnimes: action.payload.slice(0, 6)
+      };
+
+    case ACTIONS.FILTER_BY_CATEGORY:
+      const category = action.payload;
+      let filtered = state.allAnimes;
+
+      if (category !== "All") {
+        filtered = state.allAnimes.filter((anime) =>
+          anime.genres?.some((g) => g.name === category)
+        );
+      }
+
+      return {
+        ...state,
+        selectedCategory: category,
+        filteredAnimes: filtered
+      };
+
+    default:
+      return state;
+  }
+}
 
 function App() {
-  const [model, setModel]= useState(false)
-const [animeList, setAnimeList] = useState([]);
-  const [filteredAnimes, setFilteredAnimes] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [animes, setAnimes] = useState([]);
-
+  const [model, setModel] = useState(false);
+  const [state, dispatch] = useReducer(animeReducer, initialState);
 
   const categories = ["All", "Adventure", "Comedy", "Drama", "Fantasy"];
 
   const handleCategory = (category) => {
-    setSelectedCategory(category);
-    if (category === "All") {
-      setFilteredAnimes(animes);
-    } else {
-      const filtered = animes.filter((anime) =>
-        anime.genres.some((g) => g.name === category)
-      );
-      setFilteredAnimes(filtered);
-    }
+    dispatch({ type: ACTIONS.FILTER_BY_CATEGORY, payload: category });
   };
+
   useEffect(() => {
     const fetchAnime = async () => {
       try {
-        const res = await axios.get("https://api.jikan.moe/v4/anime", {
-          params: { page: 1, limit: 6 }
+        const res = await axios.get("http://localhost:5051/anime", {
+          params: { page: 1, limit: 25 }
         });
-        setAnimeList(res.data.data.slice(0, 6));
+        dispatch({ type: ACTIONS.SET_ANIMES, payload: res.data.data });
       } catch (error) {
         console.error("Error fetching anime:", error);
       }
     };
     fetchAnime();
-  }, [animeList]);
+  }, []);
+
 
 
 const handleFilteList=(cat)=>{
@@ -59,7 +92,7 @@ const handleModel = ()=>{
   return (
     <>
    
-      <div className="min-h-screen flex flex-col bg-black transition-all duration-300  'blur-sm brightness-50' px-3">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-black via-black to-black transition-all duration-300 px-3">
         <Navbar model={model} setModel={setModel} handleModel={handleModel}/>
       <section>
         <main className="flex-grow pt-20 flex">
@@ -77,16 +110,16 @@ const handleModel = ()=>{
           <div className="w-64 ml-6 flex-shrink-0 text-white">
             <h2 className="text-2xl font-bold text-white mb-4 drop-shadow-lg">Top Movies</h2>
             <div className="flex flex-col gap-4">
-              {animeList.map((anime) => (
-                <div className="flex bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg p-2 border border-white/10 hover:border-purple-500/30 transition-all duration-200 cursor-pointer group">
+              {state.topAnimes.map((anime) => (
+                <div key={anime.mal_id} className="flex bg-white/5 backdrop-blur-sm rounded-lg overflow-hidden shadow-lg p-2 border border-white/10 hover:border-purple-500/30 transition-all duration-200 cursor-pointer group">
                   <img
-                    src={anime.images.jpg.image_url}
+                    src={anime.images?.jpg?.image_url}
                     alt={anime.title}
                     className="w-16 h-24 object-cover rounded-md transition-transform duration-200 group-hover:scale-105"
                   />
                   <div className="ml-3 flex flex-col justify-center">
                     <h3 className="text-md font-bold text-purple-200 group-hover:text-purple-300 transition-colors">{anime.title}</h3>
-                    <p className="text-xs text-gray-300">{anime.synopsis.slice(0, 60)}...</p>
+                    <p className="text-xs text-gray-300">{anime.synopsis?.slice(0, 60)}...</p>
                   </div>
                 </div>
               ))}
@@ -107,7 +140,7 @@ const handleModel = ()=>{
             onClick={() => handleCategory(category)}
             className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 border cursor-pointer
               ${
-                selectedCategory === category
+                state.selectedCategory === category
                   ? "bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border-purple-500/30"
                   : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/10 hover:border-white/20"
               }`}
@@ -117,9 +150,9 @@ const handleModel = ()=>{
         ))}
       </div>
   <div className='grid grid-cols-4 gap-6'>
-    {animeList.map((anime, index) => (
+    {state.filteredAnimes.map((anime) => (
     <div 
-      key={index}
+      key={anime.mal_id}
       className="group relative w-full bg-white/5 backdrop-blur-sm rounded-2xl overflow-hidden shadow-2xl border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:transform hover:scale-105 cursor-pointer"
     >
       {/* Poster */}
